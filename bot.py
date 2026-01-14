@@ -12,8 +12,17 @@ from telegram.ext import (
 )
 
 # === Настройки из переменных окружения ===
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-YOUR_TELEGRAM_ID = int(os.getenv("YOUR_TELEGRAM_ID"))
+bot_token = os.getenv("BOT_TOKEN")
+if not bot_token:
+    raise ValueError("❌ Переменная BOT_TOKEN не задана!")
+
+telegram_id_str = os.getenv("YOUR_TELEGRAM_ID")
+if telegram_id_str is None:
+    raise ValueError("❌ Переменная YOUR_TELEGRAM_ID не задана!")
+try:
+    YOUR_TELEGRAM_ID = int(telegram_id_str)
+except ValueError:
+    raise ValueError("❌ YOUR_TELEGRAM_ID должен быть целым числом!")
 
 # === Список промокодов (регистронезависимый) ===
 VALID_PROMOCODES = {f"fly{i}" for i in range(1, 8)}  # fly1 ... fly7
@@ -30,20 +39,18 @@ VALID_PROMOCODES = {f"fly{i}" for i in range(1, 8)}  # fly1 ... fly7
 
 # === Валидация телефона ===
 def validate_phone(phone: str) -> bool:
-    # Убираем все пробелы и проверяем по маске
-    cleaned = re.sub(r'\D', '', phone)  # оставляем только цифры
+    cleaned = re.sub(r'\D', '', phone)
     return len(cleaned) == 11 and cleaned.startswith('7')
 
 def format_phone(phone: str) -> str:
-    # Приводим к виду: +7 (999) 123-45-67
     digits = re.sub(r'\D', '', phone)
     if len(digits) == 11 and digits.startswith('7'):
         return f"+7 ({digits[1:4]}) {digits[4:7]}-{digits[7:9]}-{digits[9:11]}"
-    return phone  # fallback
+    return phone
 
 # === Обработчики ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    policy_url = "https://disk.yandex.ru/i/ВАША_ССЫЛКА_НА_ПОЛИТИКУ"  # ← ЗАМЕНИТЕ!
+    policy_url = "https://disk.yandex.ru/i/ВАША_ССЫЛКА_НА_ПОЛИТИКУ"  # ← ЗАМЕНИТЕ НА РЕАЛЬНУЮ!
     text = (
         "🦋 Добро пожаловать в Fluffy!\n\n"
         "У нас вы можете получить живых бабочек прямо к себе домой.\n\n"
@@ -109,7 +116,6 @@ async def address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ADDRESS
     context.user_data["address"] = addr
 
-    # Подтверждение
     data = context.user_data
     confirm_text = (
         "Проверьте ваши данные:\n\n"
@@ -128,7 +134,6 @@ async def address(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     if "Верно" in choice:
-        # Отправляем вам в Telegram
         data = context.user_data
         user_id = update.effective_user.id
         admin_msg = (
@@ -144,7 +149,6 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.error(f"Не удалось отправить админу: {e}")
 
-        # Ответ пользователю
         await update.message.reply_text(
             "Спасибо за заказ! 🦋\n"
             "В ближайшее время мы отправим вам куколки бабочек.\n\n"
@@ -171,7 +175,7 @@ async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # === Запуск ===
 def main():
     logging.basicConfig(level=logging.INFO)
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(bot_token).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
